@@ -3,6 +3,7 @@ from rps.utilities.transformations import *
 from rps.utilities.barrier_certificates import *
 from rps.utilities.misc import *
 from rps.utilities.controllers import *
+from rps.utilities.obstacles import *
 
 import numpy as np
 import time
@@ -12,6 +13,13 @@ N = 5
 initial_conditions = np.array(np.asmatrix('1 0.5 -0.5 0 0.28; 0.8 -0.3 -0.75 0.1 0.34; 0 0 0 0 0'))
 
 r = robotarium.Robotarium(number_of_robots=N, show_figure=True, initial_conditions=initial_conditions, sim_in_real_time=False)
+
+try:
+    r.add_obstacle(CircleObstacle(center=[0.45, 0.0], radius=0.15))
+    r.add_obstacle(RectangleObstacle(center=[-0.6, -0.2], width=0.35, height=0.22, angle_deg=10))
+except Exception:
+    pass
+    
 
 # Define goal points by removing orientation from poses
 goal_points = generate_initial_conditions(N, width=r.boundaries[2]-2*r.robot_diameter, height = r.boundaries[3]-2*r.robot_diameter, spacing=0.5)

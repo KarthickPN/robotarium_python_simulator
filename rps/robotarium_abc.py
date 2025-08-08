@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
 import rps.utilities.misc as misc
+from rps.utilities.obstacles import is_obstacle
 
 # RobotariumABC: This is an interface for the Robotarium class that
 # ensures the simulator and the robots match up properly.  
@@ -72,6 +73,9 @@ class RobotariumABC(ABC):
         self.right_wheel_patches = []
         self.left_wheel_patches = []
         self.base_patches = []
+        # Obstacles
+        self.obstacles = []
+        self.obstacle_patches = []
 
         self.figure, self.axes = plt.subplots()
         if(self.show_figure):
@@ -116,6 +120,16 @@ class RobotariumABC(ABC):
             # Draw arena
             self.boundary_patch = self.axes.add_patch(patches.Rectangle(self.boundaries[:2], self.boundaries[2], self.boundaries[3], fill=False))
 
+            # Draw any pre-existing obstacles
+            for obstacle in self.obstacles:
+                try:
+                    patch = obstacle.create_patch()
+                    self.axes.add_patch(patch)
+                    self.obstacle_patches.append(patch)
+                except Exception:
+                    # Skip invalid obstacle
+                    continue
+
             self.axes.set_xlim(self.boundaries[0]-0.1, self.boundaries[0]+self.boundaries[2]+0.1)
             self.axes.set_ylim(self.boundaries[1]-0.1, self.boundaries[1]+self.boundaries[3]+0.1)
 
@@ -126,6 +140,36 @@ class RobotariumABC(ABC):
         else:
             self.figure.set_visible(False)
             plt.draw()
+
+    def add_obstacle(self, obstacle):
+        """Add a static obstacle and render it if the figure is shown.
+
+        obstacle: instance of CircleObstacle or RectangleObstacle (see rps.utilities.obstacles)
+        """
+        assert is_obstacle(obstacle), "Obstacle must be a CircleObstacle or RectangleObstacle."
+        self.obstacles.append(obstacle)
+
+        if self.show_figure:
+            patch = obstacle.create_patch()
+            self.axes.add_patch(patch)
+            self.obstacle_patches.append(patch)
+            plt.draw()
+
+    def clear_obstacles(self):
+        """Remove all obstacles from the simulator and visualization."""
+        self.obstacles = []
+        # Remove patches from axes if present
+        if self.show_figure and self.obstacle_patches:
+            for p in self.obstacle_patches:
+                try:
+                    p.remove()
+                except Exception:
+                    pass
+            self.obstacle_patches = []
+
+    def get_obstacles(self):
+        """Return the current list of obstacles."""
+        return list(self.obstacles)
 
     def set_velocities(self, ids, velocities):
         self.velocities = velocities
@@ -204,18 +248,3 @@ class RobotariumABC(ABC):
                     else:
                         errors["collision"]= {j: 1}
                         errors["collision"][k] = 1
-                        # if k == N:
-
-                        errors["collision_string"] = "iteration(s) where robots collided."
-
-        dxdd = self._uni_to_diff(self.velocities)
-        exceeding = np.absolute(dxdd) > self.max_wheel_velocity
-        if(np.any(exceeding)):
-            if "actuator" in errors:
-                errors["actuator"] += 1
-            else:
-                errors["actuator"] = 1
-                errors["actuator_string"] = "iteration(s) where the actuator limits of at least one robot were exceeded and thresholded to their maximum rotational velocity."
-
-        return errors
-
