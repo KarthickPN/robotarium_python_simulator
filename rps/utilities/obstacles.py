@@ -1,4 +1,5 @@
 import math
+import numpy as np
 from dataclasses import dataclass
 from typing import Tuple, Optional
 
@@ -37,15 +38,28 @@ class RectangleObstacle:
     alpha: float = 0.6
     zorder: int = 1
 
-    def create_patch(self) -> patches.Rectangle:
-        # Matplotlib Rectangle expects bottom-left corner; convert from center
-        x_center, y_center = self.center
-        bottom_left = (x_center - self.width / 2.0, y_center - self.height / 2.0)
-        return patches.Rectangle(
-            xy=bottom_left,
-            width=self.width,
-            height=self.height,
-            angle=self.angle_deg,
+    def create_patch(self) -> patches.Polygon:
+        # Build corners by rotating a centered rectangle around its center
+        cx, cy = self.center
+        w2 = self.width / 2.0
+        h2 = self.height / 2.0
+        corners = np.array([
+            [-w2, -h2],
+            [ w2, -h2],
+            [ w2,  h2],
+            [-w2,  h2],
+        ])
+        if self.angle_deg != 0.0:
+            theta = math.radians(self.angle_deg)
+            c = math.cos(theta)
+            s = math.sin(theta)
+            R = np.array([[c, -s], [s, c]])
+            corners = corners @ R.T
+        corners[:, 0] += cx
+        corners[:, 1] += cy
+        return patches.Polygon(
+            corners,
+            closed=True,
             facecolor=self.facecolor,
             edgecolor=self.edgecolor,
             alpha=self.alpha,

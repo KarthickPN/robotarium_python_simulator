@@ -1,5 +1,6 @@
 import numpy as np
 from rps.utilities.transformations import *
+import numpy as np
 
 def create_si_position_controller(x_velocity_gain=1, y_velocity_gain=1, velocity_magnitude_limit=0.15):
     """Creates a position controller for single integrators.  Drives a single integrator to a point
@@ -59,6 +60,48 @@ def create_si_position_controller(x_velocity_gain=1, y_velocity_gain=1, velocity
         return dxi
 
     return si_position_controller
+
+
+def create_waypoint_follower(max_speed: float = 0.15, waypoint_tolerance: float = 0.04):
+    """Create a simple waypoint follower for single-integrator dynamics.
+
+    Returns a function (xi: 2xN, waypoints: 2xM, robot_index: int, current_wp_idx: int) -> (dxi: 2xN, next_wp_idx: int)
+    """
+
+    assert max_speed > 0 and waypoint_tolerance > 0
+
+    def follower(xi: np.ndarray, waypoints: np.ndarray, robot_index: int, current_wp_idx: int):
+        assert xi.shape[0] == 2
+        assert waypoints.shape[0] == 2
+        assert 0 <= robot_index < xi.shape[1]
+
+        dxi = np.zeros((2, xi.shape[1]))
+        if waypoints.shape[1] == 0:
+            return dxi, current_wp_idx
+
+        # Advance waypoints while within tolerance
+        wp_idx = current_wp_idx
+        while wp_idx < waypoints.shape[1]:
+            delta = waypoints[:, wp_idx] - xi[:, robot_index]
+            if np.linalg.norm(delta) <= waypoint_tolerance:
+                wp_idx += 1
+            else:
+                break
+
+        if wp_idx >= waypoints.shape[1]:
+            return dxi, wp_idx
+
+        # Command towards current waypoint
+        delta = waypoints[:, wp_idx] - xi[:, robot_index]
+        norm = np.linalg.norm(delta)
+        if norm > 1e-9:
+            v = max_speed * (delta / norm)
+        else:
+            v = np.zeros(2)
+        dxi[:, robot_index] = v
+        return dxi, wp_idx
+
+    return follower
 
 def create_clf_unicycle_position_controller(linear_velocity_gain=0.8, angular_velocity_gain=3):
     """Creates a unicycle model pose controller.  Drives the unicycle model to a given position
